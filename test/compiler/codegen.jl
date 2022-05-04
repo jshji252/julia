@@ -734,3 +734,23 @@ f_donotdelete_input(x) = Base.donotdelete(x+1)
 f_donotdelete_const() = Base.donotdelete(1+1)
 @test occursin("call void (...) @jl_f_donotdelete(i64", get_llvm(f_donotdelete_input, Tuple{Int64}, true, false, false))
 @test occursin("call void (...) @jl_f_donotdelete()", get_llvm(f_donotdelete_const, Tuple{}, true, false, false))
+
+
+str_44501 = """
+struct a_44501
+end
+struct b_44501{c}
+    ch::c
+end
+children(d) = (d,)
+e(i) = children(i)
+f = a_44501
+g = b_44501(f)
+h = g, nothing
+[e(d) for d in h if isnothing(d)]
+"""
+
+mktemp() do f_44501, _
+    write(f_44501, str_44501)
+    @test success(`$(Base.julia_cmd()) --startup-file=no -O0 $f_44501`)
+end
