@@ -670,12 +670,19 @@ function type_annotate!(sv::InferenceState, run_optimizer::Bool)
     body = src.code::Array{Any,1}
     nexpr = length(body)
 
-    # replace GotoIfNot with its condition if the branch target is unreachable
-    for i = 1:nexpr
-        expr = body[i]
-        if isa(expr, GotoIfNot)
-            if !isa(states[expr.dest], VarTable)
-                body[i] = Expr(:call, GlobalRef(Core, :typeassert), expr.cond, GlobalRef(Core, :Bool))
+    # eliminate GotoIfNot if either of branch target is unreachable
+    if run_optimizer
+        for idx = 1:nexpr
+            stmt = body[idx]
+            if isa(stmt, GotoIfNot)
+                # replace GotoIfNot with:
+                # - GotoNode if the fallthrough target is unreachable
+                # - no-op if the branch target is unreachable
+                if states[idx+1] === nothing
+                    body[idx] = GotoNode(stmt.dest)
+                elseif states[stmt.dest] === nothing
+                    body[idx] = nothing
+                end
             end
         end
     end
